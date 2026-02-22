@@ -23,7 +23,7 @@ public class ThirdPersonMovement : MonoBehaviour
     void Update()
     {
         // -ground
-        isGrounded = Physics.Raycast(transform.position, Vector3.down, groundCheckDistance, groundMask);
+        isGrounded = controller.isGrounded;
 
         if (isGrounded && velocity.y < 0)
             velocity.y = -2f;
