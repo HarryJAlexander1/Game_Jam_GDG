@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace MusicMinigame
 {
@@ -24,6 +25,7 @@ namespace MusicMinigame
         internal Vector2Int Position;
         private Symbol _symbol;
         private Symbol[] _validSymbols = new Symbol[2];
+        internal GameObject SymbolSpaceGameObject;
         
         internal SymbolSpace(Vector2Int position)
         {
@@ -70,19 +72,20 @@ namespace MusicMinigame
     internal class VisualGrid
     {
         internal readonly SymbolSpace[] Symbols;
-        private readonly Vector2Int _dimensions;
+        internal readonly Vector2Int Dimensions;
+        internal GameObject GridGameObject;
         
         internal VisualGrid(Vector2Int dimensions)
         {
-            _dimensions = dimensions;
-            Symbols = new SymbolSpace[(_dimensions.x * _dimensions.y)];
-
+            Dimensions = dimensions;
+            Symbols = new SymbolSpace[(Dimensions.x * Dimensions.y)];
+            
             var posX = 0;
             var posY = 0;
             
             for (var symIndex = 0; symIndex < Symbols.Length; symIndex++)
             {
-                if (posX < _dimensions.x)
+                if (posX < Dimensions.x)
                     posX++;
                 else
                 {
@@ -110,6 +113,10 @@ namespace MusicMinigame
     {
         [SerializeField]
         private Vector2Int gridDimensions;
+        [SerializeField] 
+        private GameObject uiContainerGameObject;
+        [SerializeField] 
+        private GameObject symbolPrefab;
         
         private VisualGrid _computersGrid;
         private VisualGrid _playersGrid;
@@ -128,15 +135,34 @@ namespace MusicMinigame
 
         private static void DisplayGrids()
         {
-            
+
         }
 
         private void BuildGrids()
         {
+            var playersGridGameObject = uiContainerGameObject.transform.GetChild(0).gameObject;
+            var computersGridGameObject = uiContainerGameObject.transform.GetChild(1).gameObject;
+            
             _computersGrid = new VisualGrid(gridDimensions);
             _playersGrid = new VisualGrid(gridDimensions);
+            
+            BuildGrid(_playersGrid, playersGridGameObject);
+            BuildGrid(_computersGrid, computersGridGameObject);
         }
-        
+
+        private void BuildGrid(VisualGrid gridToBuild, GameObject gridGameObject)
+        {
+            gridGameObject.GetComponent<GridLayoutGroup>().constraintCount = gridToBuild.Dimensions.x;
+            gridToBuild.GridGameObject = gridGameObject;
+            
+            foreach (var symbol in gridToBuild.Symbols)
+            {
+                var symbolGameObject = Instantiate(symbolPrefab,
+                    gridGameObject.transform, false);
+                symbol.SymbolSpaceGameObject = symbolGameObject;
+            }
+        }
+
         /// <summary>
         /// Adds a symbol to either the computer's or player's
         /// visual grid received from the game logic handler
