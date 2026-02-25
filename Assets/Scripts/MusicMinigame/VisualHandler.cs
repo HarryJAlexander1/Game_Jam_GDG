@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace MusicMinigame
 {
-    internal enum Symbol
+    internal enum SymbolCode
     {
         Empty = -1,
         Q = 0,
@@ -18,13 +18,46 @@ namespace MusicMinigame
     }
 
     /// <summary>
+    /// Represents a symbol to be displayed in a symbol space
+    /// </summary>
+    internal class Symbol
+    {
+        internal Color Colour;
+        internal SymbolCode Code;
+        internal Symbol(SymbolCode code)
+        {
+            Code = code;
+            SetColor();
+        }
+
+        private void SetColor()
+        {
+            Colour = Code switch
+            {
+                SymbolCode.Q => Color.blue,
+                SymbolCode.W => Color.red,
+                SymbolCode.E => Color.green,
+                SymbolCode.R => Color.yellow,
+                SymbolCode.T => Color.magenta,
+                SymbolCode.Empty => Color.clear,
+                _ => Colour
+            };
+        }
+
+        internal static Symbol EmptySymbol()
+        {
+            return new Symbol(SymbolCode.Empty);
+        }
+    }
+
+    /// <summary>
     /// Contains a symbol and represents a space within the visual grid.
     /// </summary>
     internal class SymbolSpace
     {
         internal Vector2Int Position;
-        private Symbol _symbol;
-        private Symbol[] _validSymbols = new Symbol[2];
+        internal Symbol ContainedSymbol;
+        private SymbolCode[] _validSymbols = new SymbolCode[2];
         internal GameObject SymbolSpaceGameObject;
         
         internal SymbolSpace(Vector2Int position)
@@ -35,30 +68,31 @@ namespace MusicMinigame
         private void Init(Vector2Int position)
         {
             Position = position;
-            _symbol = default;
+            ContainedSymbol = Symbol.EmptySymbol();
             SetValidSymbols(Position);
         }
 
         internal bool CanContainSymbol(Symbol symbol)
         {
-            return _symbol == Symbol.Empty && _validSymbols.Contains(symbol);
+            return ContainedSymbol.Code == SymbolCode.Empty && _validSymbols.Contains(symbol.Code);
         }
 
         internal void SetSymbol(Symbol symbol)
         {
-            _symbol = symbol;
+            ContainedSymbol = symbol;
+            SymbolSpaceGameObject.GetComponent<Image>().color = symbol.Colour;
         }
 
         private void SetValidSymbols(Vector2Int position)
         {
-            var validSymbols = new Symbol[2] { default, default };
+            var validSymbols = new SymbolCode[2] { default, default };
             validSymbols[1] = position.y switch
             {
-                0 => Symbol.Q,
-                1 => Symbol.W,
-                2 => Symbol.E,
-                3 => Symbol.R,
-                4 => Symbol.T,
+                0 => SymbolCode.Q,
+                1 => SymbolCode.W,
+                2 => SymbolCode.E,
+                3 => SymbolCode.R,
+                4 => SymbolCode.T,
                 _ => throw new ArgumentOutOfRangeException()
             };
             _validSymbols = validSymbols;
@@ -74,12 +108,12 @@ namespace MusicMinigame
         internal readonly SymbolSpace[] Symbols;
         internal readonly Vector2Int Dimensions;
         internal GameObject GridGameObject;
-        
+        internal int LastSymbolIndex;
         internal VisualGrid(Vector2Int dimensions)
         {
             Dimensions = dimensions;
             Symbols = new SymbolSpace[(Dimensions.x * Dimensions.y)];
-            
+            LastSymbolIndex = -1;
             var posX = 0;
             var posY = 0;
             
@@ -89,19 +123,23 @@ namespace MusicMinigame
                     posX++;
                 else
                 {
-                    posX = 0;
+                    posX = 1;
                     posY++;
                 }
                 var pos = new Vector2Int(posX, posY);
                 Symbols[symIndex] = new SymbolSpace(pos);
+                Debug.Log(Symbols[symIndex].Position.ToString());
             }
         }
 
         internal void Reset()
         {
+            LastSymbolIndex = -1;
+            
             foreach (var symbolSpace in Symbols)
             {
-                symbolSpace.SetSymbol(default);
+                var resetSymbol = Symbol.EmptySymbol();
+                symbolSpace.SetSymbol(resetSymbol);
             }
         }
     }
@@ -130,6 +168,8 @@ namespace MusicMinigame
         // Update is called once per frame
         private void Update()
         {
+            DebugAddSymbol();
+            DebugResetGrid();
             DisplayGrids();
         }
 
@@ -157,8 +197,8 @@ namespace MusicMinigame
             
             foreach (var symbol in gridToBuild.Symbols)
             {
-                var symbolGameObject = Instantiate(symbolPrefab,
-                    gridGameObject.transform, false);
+                var symbolGameObject = Instantiate(symbolPrefab, gridGameObject.transform, false); 
+                symbolGameObject.GetComponent<Image>().color = Symbol.EmptySymbol().Colour;
                 symbol.SymbolSpaceGameObject = symbolGameObject;
             }
         }
@@ -167,15 +207,18 @@ namespace MusicMinigame
         /// Adds a symbol to either the computer's or player's
         /// visual grid received from the game logic handler
         /// </summary>
-        private void AddSymbol(string symbolInput, bool isPlayersGrid)
+        private void AddSymbol(int symbolInput, bool isPlayersGrid)
         {
             var gridToModify = isPlayersGrid ? _playersGrid : _computersGrid;
-            var symbol = Enum.Parse<Symbol>(symbolInput);
+            var symbolCode = (SymbolCode)symbolInput;
+            var symbol = new Symbol(symbolCode);
 
             foreach (var symbolSpace in gridToModify.Symbols)
             {
-                if (!symbolSpace.CanContainSymbol(symbol)) continue;
+                if (gridToModify.LastSymbolIndex >= symbolSpace.Position.x || 
+                    !symbolSpace.CanContainSymbol(symbol)) continue;
                 symbolSpace.SetSymbol(symbol);
+                gridToModify.LastSymbolIndex = symbolSpace.Position.x;
                 break;
             }
         }
@@ -188,6 +231,41 @@ namespace MusicMinigame
         {
             var gridToModify = isPlayersGrid ? _computersGrid : _playersGrid;
             gridToModify.Reset();
+        }
+        
+        // ------------------------------Debug Methods (REMOVE BEFORE SUBMITTING GAME) ---------------------------------
+        private void DebugAddSymbol()
+        { 
+            var gridToModify = Input.GetKey(KeyCode.LeftShift) ? _computersGrid : _playersGrid;
+            if (Input.GetKeyDown(KeyCode.F))
+            {
+                AddSymbol(0, gridToModify != _playersGrid);
+            }
+            else if (Input.GetKeyDown(KeyCode.G))
+            {
+                AddSymbol(1, gridToModify != _playersGrid);
+            }
+            else if (Input.GetKeyDown(KeyCode.H))
+            {
+                AddSymbol(2, gridToModify != _playersGrid);
+            }
+            else if (Input.GetKeyDown(KeyCode.J))
+            {
+                AddSymbol(3, gridToModify != _playersGrid);
+            }
+            else if (Input.GetKeyDown(KeyCode.K))
+            {
+                AddSymbol(4, gridToModify != _playersGrid);
+            }
+        }
+
+        private void DebugResetGrid()
+        {
+            var gridToModify = Input.GetKey(KeyCode.LeftShift) ? _computersGrid : _playersGrid;
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                ResetGrid(gridToModify == _playersGrid);
+            }
         }
     }
 }
